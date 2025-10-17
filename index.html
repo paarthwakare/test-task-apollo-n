@@ -1,0 +1,844 @@
+index.html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Dustbin - Drag to Trash Demo</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Drag items into the dustbin to discard, and restore them from Trash. A simple, accessible web app demo." />
+  <style>
+    :root{
+      --bg: #0f1220;
+      --panel: #171a2b;
+      --muted: #a5a8c7;
+      --text: #eef1ff;
+      --primary: #6ea8fe;
+      --accent: #7cffbf;
+      --danger: #ff6b6b;
+      --warning: #ffd166;
+      --good: #66ffa6;
+      --shadow: rgba(0,0,0,.35);
+      --outline: 2px solid #6ea8fe88;
+      --radius: 14px;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body{
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji";
+      background: radial-gradient(1200px 900px at 70% -200px, #1a2140, #0f1220 60%);
+      color: var(--text);
+    }
+    header{
+      padding: 28px 20px 8px;
+      text-align: center;
+    }
+    header h1{
+      margin: 0;
+      font-size: clamp(22px, 3.6vw, 36px);
+      letter-spacing: 0.3px;
+    }
+    header p{
+      margin: 6px auto 0;
+      color: var(--muted);
+      max-width: 680px;
+    }
+    .app{
+      max-width: 920px;
+      margin: 18px auto 120px;
+      padding: 0 16px 60px;
+    }
+    .card{
+      background: linear-gradient(180deg, #1a1e34, #14182b);
+      border: 1px solid #2a2f4b;
+      border-radius: var(--radius);
+      box-shadow: 0 10px 30px var(--shadow), inset 0 1px 0 rgba(255,255,255,0.05);
+      overflow: clip;
+    }
+    .toolbar{
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      padding: 16px;
+      border-bottom: 1px solid #262b45;
+      background: linear-gradient(180deg, rgba(255,255,255,0.02), transparent);
+    }
+    .toolbar input[type="text"]{
+      width: 100%;
+      background: #0f1426;
+      color: var(--text);
+      border: 1px solid #2b3152;
+      border-radius: 12px;
+      padding: 14px 14px 14px 44px;
+      outline: none;
+      transition: border .2s, box-shadow .2s, background .2s;
+      font-size: 15px;
+    }
+    .toolbar input[type="text"]:focus{
+      border-color: #3f6cd9;
+      box-shadow: 0 0 0 4px rgba(110,168,254,0.15);
+      background: #0d1324;
+    }
+    .searchIcon{
+      position: absolute;
+      width: 20px;
+      height: 20px;
+      margin: 14px 0 0 12px;
+      pointer-events: none;
+      opacity: .8;
+    }
+    .toolbar .btn{
+      background: linear-gradient(180deg, #6ea8fe, #4d87e8);
+      border: 0;
+      color: #0d1224;
+      font-weight: 700;
+      padding: 12px 18px;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: transform .06s ease, filter .2s ease, box-shadow .2s ease;
+      box-shadow: 0 6px 18px rgba(110,168,254,0.35), inset 0 0 0 1px rgba(255,255,255,0.18);
+    }
+    .toolbar .btn:hover{ filter: brightness(1.05); }
+    .toolbar .btn:active{ transform: translateY(1px); }
+    .hint{
+      padding: 10px 16px 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .list{
+      list-style: none;
+      margin: 0;
+      padding: 8px;
+      min-height: 160px;
+    }
+    .emptyState{
+      color: var(--muted);
+      text-align: center;
+      padding: 40px 16px 60px;
+    }
+    .item{
+      position: relative;
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: 12px;
+      align-items: center;
+      padding: 12px 12px;
+      margin: 10px 6px;
+      background: #0f1426;
+      border: 1px solid #293050;
+      border-radius: 12px;
+      box-shadow: 0 10px 24px rgba(0,0,0,.22), inset 0 1px 0 rgba(255,255,255,0.04);
+      transition: transform .15s ease, background .2s ease, border-color .2s ease, box-shadow .2s ease;
+    }
+    .item[draggable="true"]{
+      cursor: grab;
+      user-select: none;
+    }
+    .item:focus-within{
+      border-color: #3f6cd9;
+      box-shadow: 0 0 0 4px rgba(110,168,254,0.14), 0 10px 24px rgba(0,0,0,.22);
+      outline: none;
+    }
+    .item.dragging{
+      opacity: .75;
+      transform: scale(.98);
+      box-shadow: 0 16px 40px rgba(0,0,0,.35);
+    }
+    .handle{
+      width: 28px;
+      height: 28px;
+      display: grid;
+      place-items: center;
+      border-radius: 10px;
+      background: #121737;
+      border: 1px dashed #2f3560;
+      color: #9bacff;
+      font-size: 16px;
+    }
+    .title{
+      line-height: 1.3;
+      font-size: 15px;
+      word-break: break-word;
+    }
+    .meta{
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 2px;
+    }
+    .actions{
+      display: flex;
+      gap: 6px;
+    }
+    .iconBtn{
+      appearance: none;
+      border: 1px solid #2b3152;
+      background: #0e1530;
+      color: #d7dbff;
+      width: 36px;
+      height: 36px;
+      display: grid;
+      place-items: center;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: transform .06s ease, filter .2s ease, background .2s ease, border-color .2s ease;
+    }
+    .iconBtn:hover{ filter: brightness(1.1); }
+    .iconBtn:active{ transform: translateY(1px); }
+    .iconBtn.danger{ color: #ffb3b3; border-color: #3c2b2b; background: #1b0e12; }
+    .iconBtn.good{ color: #b6ffd6; border-color: #244134; background: #0e1a15; }
+
+    .kbd{
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      background: #0e1324;
+      border: 1px solid #2b3152;
+      padding: 2px 6px;
+      border-radius: 6px;
+      font-size: 12px;
+      color: #c8ccff;
+    }
+
+    /* Dustbin */
+    .dustbinWrap{
+      position: fixed;
+      right: 20px;
+      bottom: 20px;
+      z-index: 10;
+    }
+    .dustbin{
+      position: relative;
+      width: 96px;
+      height: 96px;
+      display: grid;
+      place-items: center;
+      background: radial-gradient(120px 120px at 50% 20%, #273056, #1b2039 70%);
+      border: 1px solid #2c345b;
+      border-radius: 20px;
+      box-shadow: 0 12px 40px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,0.05);
+      transition: transform .15s ease, background .3s ease, border-color .2s ease;
+      user-select: none;
+      cursor: pointer;
+    }
+    .dustbin:focus{
+      outline: none;
+      box-shadow: 0 12px 40px rgba(0,0,0,.45), 0 0 0 5px rgba(110,168,254,0.18);
+    }
+    .dustbin:hover{ transform: translateY(-2px); }
+    .dustbin:active{ transform: translateY(0); }
+    .lid{
+      position: absolute;
+      top: 16px;
+      width: 54px;
+      height: 10px;
+      border-radius: 6px 6px 2px 2px;
+      background: linear-gradient(180deg, #97b5ff, #6f8fe4);
+      transform-origin: 12px 50%;
+      transition: transform .2s ease;
+      box-shadow: 0 4px 10px rgba(0,0,0,.35), inset 0 0 0 1px rgba(255,255,255,0.35);
+    }
+    .bin{
+      position: absolute;
+      top: 28px;
+      width: 60px;
+      height: 46px;
+      border-radius: 6px 6px 12px 12px;
+      background: linear-gradient(180deg, #91a8ff, #5f7fe3);
+      box-shadow: inset 0 -6px 16px rgba(0,0,0,.22), inset 0 1px 0 rgba(255,255,255,0.4);
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+    }
+    .bin::before{
+      content: "";
+      position: absolute;
+      inset: 0;
+      background-image: repeating-linear-gradient(90deg, rgba(0,0,0,.12) 0 4px, transparent 4px 10px);
+      opacity: .5;
+    }
+    .dustbin.over .lid{ transform: rotate(-22deg) translateY(-2px); }
+    .dustbin.drop{ animation: pulse .35s ease; }
+    @keyframes pulse {
+      0% { transform: translateY(-2px) scale(1); }
+      50% { transform: translateY(-2px) scale(1.06); }
+      100%{ transform: translateY(-2px) scale(1); }
+    }
+    .badge{
+      position: absolute;
+      top: -6px;
+      right: -6px;
+      min-width: 26px;
+      height: 26px;
+      padding: 0 7px;
+      display: grid;
+      place-items: center;
+      background: linear-gradient(180deg, #ff8a8a, #ff5a5a);
+      color: #270303;
+      border-radius: 999px;
+      border: 1px solid rgba(0,0,0,.25);
+      box-shadow: 0 8px 16px rgba(255,90,90,.35), inset 0 1px 0 rgba(255,255,255,0.6);
+      font-weight: 800;
+      font-size: 13px;
+    }
+    .openTrashBtn{
+      position: absolute;
+      bottom: 8px;
+      right: 8px;
+      background: rgba(0,0,0,.35);
+      color: #d9e2ff;
+      border: 1px solid rgba(255,255,255,.16);
+      padding: 4px 8px;
+      border-radius: 8px;
+      font-size: 12px;
+      cursor: pointer;
+      backdrop-filter: blur(6px);
+    }
+
+    /* Trash modal */
+    .modal{
+      position: fixed;
+      inset: 0;
+      display: none;
+      place-items: center;
+      background: rgba(10, 13, 25, .55);
+      z-index: 20;
+      padding: 20px;
+    }
+    .modal.show{ display: grid; }
+    .sheet{
+      width: min(880px, 96vw);
+      max-height: 86vh;
+      overflow: auto;
+      border-radius: 16px;
+      background: #0f1426;
+      border: 1px solid #2b3152;
+      box-shadow: 0 20px 80px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.05);
+    }
+    .sheet header{
+      text-align: left;
+      padding: 16px 18px 10px;
+      border-bottom: 1px solid #262b45;
+    }
+    .sheet header h2{
+      margin: 0;
+      font-size: 18px;
+    }
+    .sheet .list{ padding: 10px; }
+    .sheet .emptyState{ padding: 30px 16px 40px; }
+
+    .sheetFoot{
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 10px 12px 12px;
+      border-top: 1px solid #262b45;
+      background: #0c1224;
+    }
+    .btnText{
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid #2b3152;
+      padding: 10px 12px;
+      border-radius: 10px;
+      cursor: pointer;
+    }
+    .btnDanger{
+      background: linear-gradient(180deg, #ff8989, #ff5a5a);
+      border: 0;
+      color: #280a0a;
+      font-weight: 800;
+      padding: 10px 12px;
+      border-radius: 10px;
+      cursor: pointer;
+      box-shadow: 0 6px 18px rgba(255,90,90,.35), inset 0 0 0 1px rgba(255,255,255,0.35);
+    }
+
+    .toastWrap{
+      position: fixed;
+      bottom: 130px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: grid;
+      gap: 8px;
+      z-index: 50;
+      width: min(560px, 90vw);
+      pointer-events: none;
+    }
+    .toast{
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: #0c1224;
+      border: 1px solid #2b3152;
+      color: #d8dcff;
+      padding: 10px 12px;
+      border-radius: 12px;
+      box-shadow: 0 10px 24px rgba(0,0,0,.35);
+      animation: slideUp .25s ease;
+      pointer-events: auto;
+    }
+    .toast.good{ border-color: #254b36; background: #0b1712; color: #cbffe5; }
+    .toast.warn{ border-color: #4b4725; background: #17150b; color: #fff2c6; }
+    .toast .close{
+      margin-left: auto;
+      border: none;
+      background: transparent;
+      color: inherit;
+      cursor: pointer;
+      font-size: 18px;
+    }
+    @keyframes slideUp {
+      from{ opacity: 0; transform: translate(-50%, 10px); }
+      to{ opacity: 1; transform: translate(-50%, 0); }
+    }
+
+    .footerNote{
+      margin: 20px auto 0;
+      max-width: 920px;
+      color: var(--muted);
+      font-size: 12px;
+      text-align: center;
+      padding: 0 16px 40px;
+    }
+
+    @media (max-width: 640px){
+      .toolbar{ grid-template-columns: 1fr; }
+      .dustbin{ width: 86px; height: 86px; }
+      .lid{ top: 14px; }
+      .bin{ top: 26px; }
+      .badge{ transform: scale(.94); transform-origin: 100% 0; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      * { transition-duration: 0.001ms !important; animation-duration: 0.001ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Dustbin</h1>
+    <p>Drag items into the bin to discard them. Open the Trash to restore or permanently delete. Use keyboard shortcuts for speed: select an item and press Delete to send it to trash.</p>
+  </header>
+
+  <main class="app">
+    <section class="card" aria-labelledby="list-title">
+      <div class="toolbar" role="region" aria-label="Add item">
+        <div style="position: relative; width: 100%;">
+          <svg class="searchIcon" viewBox="0 0 24 24" aria-hidden="true"><path fill="#8ea0ff" d="M15.5 14h-.79l-.28-.27a6.5 6.5 0 1 0-.71.71l.27.28v.79l5 4.99L20.49 19l-4.99-5m-6 0A4.5 4.5 0 1 1 14 9.5 4.5 4.5 0 0 1 9.5 14z"/></svg>
+          <input id="newItemInput" type="text" placeholder="Add a new item... e.g. 'Old receipts'" autocomplete="off" aria-label="New item text" />
+        </div>
+        <button id="addBtn" class="btn" aria-label="Add item">Add</button>
+      </div>
+      <div class="hint">
+        Tips: Drag an item onto the dustbin. Keyboard: select an item and press Delete. Button on each item works on mobile, too.
+      </div>
+      <ul id="itemList" class="list" role="list" aria-live="polite" aria-describedby="listEmpty">
+        <!-- Items injected -->
+      </ul>
+    </section>
+  </main>
+
+  <div class="dustbinWrap">
+    <button id="dustbin" class="dustbin" aria-label="Trash. Drop items here." aria-haspopup="dialog">
+      <div class="lid" aria-hidden="true"></div>
+      <div class="bin" aria-hidden="true">
+        <svg width="30" height="30" viewBox="0 0 24 24" aria-hidden="true">
+          <path fill="#1b2142" d="M3 6h18v2H3z"/>
+          <path fill="#1b2142" d="M5 8h14l-1 12a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 8z"/>
+        </svg>
+      </div>
+      <span id="trashCount" class="badge" title="Trashed items count">0</span>
+    </button>
+    <button class="openTrashBtn" id="openTrashBtn" aria-label="Open Trash">Open Trash</button>
+  </div>
+
+  <!-- Trash Modal -->
+  <div class="modal" id="trashModal" role="dialog" aria-modal="true" aria-labelledby="trashTitle">
+    <div class="sheet" role="document">
+      <header>
+        <h2 id="trashTitle">Trash</h2>
+        <p class="hint">Items here are not permanently deleted. Restore them or empty the trash.</p>
+      </header>
+      <ul id="trashList" class="list" role="list" aria-live="polite">
+        <!-- Trashed items -->
+      </ul>
+      <div class="sheetFoot">
+        <button class="btnText" id="closeTrashBtn" aria-label="Close Trash">Close</button>
+        <div style="display:flex; gap:8px;">
+          <button class="btnText" id="restoreAllBtn" aria-label="Restore all items">Restore All</button>
+          <button class="btnDanger" id="emptyTrashBtn" aria-label="Empty Trash">Empty Trash</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toastWrap" id="toastWrap" aria-live="polite" aria-atomic="true"></div>
+
+  <p class="footerNote">Local-first: your items are saved in your browser only. No data leaves this page.</p>
+
+  <script>
+    ;(() => {
+      const $ = s => document.querySelector(s)
+      const $$ = s => Array.from(document.querySelectorAll(s))
+
+      const store = {
+        key: 'dustbin@v1',
+        get(){
+          try {
+            const raw = localStorage.getItem(this.key)
+            if(!raw) return { items: [], trash: [] }
+            const parsed = JSON.parse(raw)
+            return {
+              items: Array.isArray(parsed.items) ? parsed.items : [],
+              trash: Array.isArray(parsed.trash) ? parsed.trash : []
+            }
+          } catch(e){
+            console.warn('Storage read error', e)
+            return { items: [], trash: [] }
+          }
+        },
+        set(data){
+          try {
+            localStorage.setItem(this.key, JSON.stringify(data))
+          } catch(e){
+            console.warn('Storage write error', e)
+          }
+        },
+        putItems(items){ const data = this.get(); data.items = items; this.set(data) },
+        putTrash(trash){ const data = this.get(); data.trash = trash; this.set(data) }
+      }
+
+      let state = store.get()
+      if(state.items.length === 0 && state.trash.length === 0){
+        // Seed demo items
+        state.items = [
+          mkItem("Old notes from meeting"),
+          mkItem("Receipt photo (March)"),
+          mkItem("Todo: Fix bike"),
+          mkItem("Unused code snippet")
+        ]
+        store.putItems(state.items)
+      }
+
+      const els = {
+        input: $('#newItemInput'),
+        addBtn: $('#addBtn'),
+        list: $('#itemList'),
+        dustbin: $('#dustbin'),
+        trashCount: $('#trashCount'),
+        trashModal: $('#trashModal'),
+        trashList: $('#trashList'),
+        closeTrashBtn: $('#closeTrashBtn'),
+        emptyTrashBtn: $('#emptyTrashBtn'),
+        restoreAllBtn: $('#restoreAllBtn'),
+        openTrashBtn: $('#openTrashBtn'),
+        toastWrap: $('#toastWrap'),
+      }
+
+      function mkId(){
+        return 'i_' + Math.random().toString(36).slice(2, 9) + Date.now().toString(36).slice(-3)
+      }
+      function mkItem(text){
+        return { id: mkId(), text: text.trim(), createdAt: Date.now() }
+      }
+      function fmtDate(ts){
+        try {
+          const d = new Date(ts)
+          return d.toLocaleString()
+        } catch { return '' }
+      }
+
+      function render(){
+        renderItems()
+        renderTrash()
+        updateTrashCount()
+      }
+
+      function renderItems(){
+        const items = state.items
+        if(items.length === 0){
+          els.list.innerHTML = `<li id="listEmpty" class="emptyState">
+            Nothing here yet. Add something above, then drag it to the dustbin to discard.
+          </li>`
+          return
+        }
+        els.list.innerHTML = ''
+        for(const it of items){
+          const li = document.createElement('li')
+          li.className = 'item'
+          li.setAttribute('role', 'listitem')
+          li.setAttribute('tabindex', '0')
+          li.draggable = true
+          li.dataset.id = it.id
+          li.innerHTML = `
+            <div class="handle" aria-hidden="true" title="Drag handle">⋮⋮</div>
+            <div class="textWrap">
+              <div class="title">${esc(it.text)}</div>
+              <div class="meta">Added ${fmtDate(it.createdAt)}</div>
+            </div>
+            <div class="actions">
+              <button class="iconBtn danger" title="Move to Trash" aria-label="Move '${esc(it.text)}' to Trash" data-action="trash">
+                <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M9 3v1H4v2h16V4h-5V3H9m1 6v8h2V9h-2m-4 0v8h2V9H6m8 0v8h2V9h-2Z"/></svg>
+              </button>
+            </div>
+          `
+          attachItemEvents(li)
+          els.list.appendChild(li)
+        }
+      }
+
+      function renderTrash(){
+        const trash = state.trash
+        if(!els.trashModal.classList.contains('show')) return // build only when opened for perf
+        els.trashList.innerHTML = ''
+        if(trash.length === 0){
+          els.trashList.innerHTML = `<li class="emptyState">Trash is empty.</li>`
+          return
+        }
+        for(const it of trash){
+          const li = document.createElement('li')
+          li.className = 'item'
+          li.setAttribute('role', 'listitem')
+          li.dataset.id = it.id
+          li.innerHTML = `
+            <div class="handle" aria-hidden="true">🗑️</div>
+            <div class="textWrap">
+              <div class="title">${esc(it.text)}</div>
+              <div class="meta">Discarded ${fmtDate(it.discardedAt || Date.now())}</div>
+            </div>
+            <div class="actions">
+              <button class="iconBtn good" title="Restore" aria-label="Restore '${esc(it.text)}'" data-action="restore">
+                <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M10 9V5l-7 7l7 7v-4.1c5 0 8.5 1.6 11 5.1c-1-5-4-10-11-11Z"/></svg>
+              </button>
+              <button class="iconBtn danger" title="Delete permanently" aria-label="Delete '${esc(it.text)}' permanently" data-action="del">
+                <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="m19 6.41l-1.41-1.41L12 10.59L6.41 5L5 6.41L10.59 12L5 17.59L6.41 19L12 13.41L17.59 19L19 17.59L13.41 12z"/></svg>
+              </button>
+            </div>
+          `
+          li.querySelector('[data-action="restore"]').addEventListener('click', () => restoreItem(it.id))
+          li.querySelector('[data-action="del"]').addEventListener('click', () => deleteForever(it.id))
+          els.trashList.appendChild(li)
+        }
+      }
+
+      function updateTrashCount(){
+        els.trashCount.textContent = state.trash.length
+      }
+
+      function attachItemEvents(li){
+        li.addEventListener('dragstart', (e) => {
+          e.dataTransfer.setData('text/plain', li.dataset.id)
+          e.dataTransfer.effectAllowed = 'move'
+          li.classList.add('dragging')
+          // Optional drag image
+          try {
+            const img = new Image()
+            img.src = 'data:image/svg+xml;utf8,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="220" height="50"><rect rx="10" width="220" height="50" fill="#1a2140" stroke="#3f6cd9"/><text x="12" y="32" font-family="Segoe UI, Roboto, Arial" font-size="16" fill="#dce2ff">Move to Trash →</text></svg>`)
+            e.dataTransfer.setDragImage(img, 20, 25)
+          } catch {}
+        })
+        li.addEventListener('dragend', () => li.classList.remove('dragging'))
+        li.addEventListener('keydown', (e) => {
+          if(e.key === 'Delete' || e.key === 'Backspace'){
+            e.preventDefault()
+            toTrash(li.dataset.id)
+          } else if((e.key === 't' || e.key === 'T') && !e.ctrlKey && !e.metaKey){
+            e.preventDefault()
+            toTrash(li.dataset.id)
+          }
+        })
+        li.querySelector('[data-action="trash"]').addEventListener('click', () => toTrash(li.dataset.id))
+      }
+
+      // Dustbin drag/drop
+      ;['dragenter','dragover'].forEach(ev => {
+        els.dustbin.addEventListener(ev, (e) => {
+          e.preventDefault()
+          e.dataTransfer.dropEffect = 'move'
+          els.dustbin.classList.add('over')
+        })
+      })
+      ;['dragleave','drop'].forEach(ev => {
+        els.dustbin.addEventListener(ev, () => els.dustbin.classList.remove('over'))
+      })
+      els.dustbin.addEventListener('drop', (e) => {
+        e.preventDefault()
+        const id = e.dataTransfer.getData('text/plain')
+        if(id) {
+          els.dustbin.classList.add('drop')
+          setTimeout(() => els.dustbin.classList.remove('drop'), 350)
+          toTrash(id)
+        }
+      })
+      els.dustbin.addEventListener('click', openTrash)
+
+      // Add item
+      els.addBtn.addEventListener('click', addItemFromInput)
+      els.input.addEventListener('keydown', (e) => {
+        if(e.key === 'Enter') addItemFromInput()
+      })
+
+      function addItemFromInput(){
+        const txt = (els.input.value || '').trim()
+        if(!txt){
+          toast('Please type something to add.', 'warn')
+          return
+        }
+        const it = mkItem(txt)
+        state.items.unshift(it)
+        store.putItems(state.items)
+        els.input.value = ''
+        renderItems()
+        toast('Added item.')
+      }
+
+      function toTrash(id){
+        const idx = state.items.findIndex(i => i.id === id)
+        if(idx === -1) return
+        const [it] = state.items.splice(idx, 1)
+        it.discardedAt = Date.now()
+        state.trash.unshift(it)
+        store.putItems(state.items)
+        store.putTrash(state.trash)
+        renderItems()
+        updateTrashCount()
+        toast('Moved to Trash.', 'warn', { actionText: 'Undo', onAction: () => undoTrash(it.id) })
+      }
+      function undoTrash(id){
+        const idx = state.trash.findIndex(i => i.id === id)
+        if(idx === -1) return
+        const [it] = state.trash.splice(idx, 1)
+        delete it.discardedAt
+        state.items.unshift(it)
+        store.putItems(state.items)
+        store.putTrash(state.trash)
+        renderItems()
+        updateTrashCount()
+        toast('Restored.')
+      }
+
+      function restoreItem(id){
+        const idx = state.trash.findIndex(i => i.id === id)
+        if(idx === -1) return
+        const [it] = state.trash.splice(idx, 1)
+        delete it.discardedAt
+        state.items.unshift(it)
+        store.putItems(state.items)
+        store.putTrash(state.trash)
+        renderTrash()
+        renderItems()
+        updateTrashCount()
+        toast('Item restored.', 'good')
+      }
+      function deleteForever(id){
+        const idx = state.trash.findIndex(i => i.id === id)
+        if(idx === -1) return
+        state.trash.splice(idx, 1)
+        store.putTrash(state.trash)
+        renderTrash()
+        updateTrashCount()
+        toast('Deleted permanently.', 'warn')
+      }
+      function emptyTrash(){
+        if(state.trash.length === 0) return
+        const count = state.trash.length
+        state.trash = []
+        store.putTrash(state.trash)
+        renderTrash()
+        updateTrashCount()
+        toast(`Emptied Trash (${count}).`, 'warn')
+      }
+      function restoreAll(){
+        if(state.trash.length === 0) return
+        const moved = state.trash.splice(0, state.trash.length)
+        moved.forEach(it => delete it.discardedAt)
+        state.items.unshift(...moved)
+        store.putItems(state.items)
+        store.putTrash(state.trash)
+        renderTrash()
+        renderItems()
+        updateTrashCount()
+        toast('All items restored.', 'good')
+      }
+
+      // Modal controls
+      function openTrash(){
+        els.trashModal.classList.add('show')
+        renderTrash()
+        trapFocus(els.trashModal)
+      }
+      function closeTrash(){
+        els.trashModal.classList.remove('show')
+        releaseFocus()
+      }
+      els.openTrashBtn.addEventListener('click', openTrash)
+      els.closeTrashBtn.addEventListener('click', closeTrash)
+      els.emptyTrashBtn.addEventListener('click', emptyTrash)
+      els.restoreAllBtn.addEventListener('click', restoreAll)
+      els.trashModal.addEventListener('click', (e) => {
+        if(e.target === els.trashModal) closeTrash()
+      })
+      document.addEventListener('keydown', (e) => {
+        if(e.key === 'Escape' && els.trashModal.classList.contains('show')) closeTrash()
+      })
+
+      // Toaster
+      function toast(msg, type = '', opts = {}){
+        const t = document.createElement('div')
+        t.className = 'toast' + (type ? ' ' + (type === 'good' ? 'good' : 'warn') : '')
+        t.innerHTML = `
+          <span>${esc(msg)}</span>
+          ${opts.actionText ? `<button class="btnText" style="margin-left:auto" aria-label="${esc(opts.actionText)}">${esc(opts.actionText)}</button>` : ''}
+          <button class="close" aria-label="Close">×</button>
+        `
+        const closer = t.querySelector('.close')
+        const action = t.querySelector('.btnText')
+        const remove = () => t.remove()
+        closer.addEventListener('click', remove)
+        if(opts.onAction && action){
+          action.addEventListener('click', () => { opts.onAction(); remove() })
+        }
+        els.toastWrap.appendChild(t)
+        setTimeout(remove, 4200)
+      }
+
+      // Accessibility: focus trap for modal
+      let prevFocus = null
+      function trapFocus(modal){
+        prevFocus = document.activeElement
+        const focusables = modal.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')
+        const first = focusables[0]
+        const last = focusables[focusables.length - 1]
+        first && first.focus()
+        function handleTab(e){
+          if(e.key !== 'Tab') return
+          if(focusables.length === 0) return
+          if(e.shiftKey){
+            if(document.activeElement === first){ e.preventDefault(); last.focus() }
+          }else{
+            if(document.activeElement === last){ e.preventDefault(); first.focus() }
+          }
+        }
+        modal.addEventListener('keydown', handleTab)
+        modal._trap = handleTab
+      }
+      function releaseFocus(){
+        const modal = els.trashModal
+        if(modal._trap){ modal.removeEventListener('keydown', modal._trap); modal._trap = null }
+        if(prevFocus && document.body.contains(prevFocus)) prevFocus.focus()
+      }
+
+      function esc(s){
+        return String(s).replace(/[&<>"']/g, m => ({
+          '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+        })[m])
+      }
+
+      // Init
+      render()
+
+      // Expose for debug
+      window._dustbin = { state, render }
+    })();
+  </script>
+</body>
+</html>
